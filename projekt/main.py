@@ -1,11 +1,20 @@
 import csv
+import os
 from datetime import datetime
 
+# ProgressBar on valikuline
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
+
+
 INPUT = "2023-03-08_IT22_ExtraBig.csv"
-OUTPUT = "tulemus_18_august.csv"
 
 DAY = 18
 MONTH = 8
+
+OUTPUT = f"tulemus_{DAY:02d}_{MONTH:02d}.csv"
 
 
 def normalize(text: str) -> str:
@@ -39,6 +48,14 @@ def calculate_age(birth, death):
     return years
 
 
+# --- FAILI OLEMASOLU KONTROLL ---
+if os.path.exists(OUTPUT):
+    raise FileExistsError(
+        f"Väljundfail '{OUTPUT}' on juba olemas. "
+        "Muuda kuupäeva või kustuta fail."
+    )
+
+
 with open(INPUT, encoding="utf-8") as fin, \
      open(OUTPUT, "w", encoding="utf-8", newline="") as fout:
 
@@ -58,7 +75,9 @@ with open(INPUT, encoding="utf-8") as fin, \
             death_col = col
 
     if birth_col is None or death_col is None:
-        raise RuntimeError(f"Veerge ei leitud: {reader.fieldnames}")
+        raise RuntimeError(
+            f"Ei leitud sünni- või surmakuupäeva veergu: {reader.fieldnames}"
+        )
 
     writer = csv.DictWriter(
         fout,
@@ -67,12 +86,9 @@ with open(INPUT, encoding="utf-8") as fin, \
     )
     writer.writeheader()
 
-    matched = 0
+    rows = tqdm(reader, desc="Töötlen CSV-d", unit="rida") if tqdm else reader
 
-    for i, row in enumerate(reader, start=1):
-        if i % 10000 == 0:
-            print(f"Töötlen rida {i}... leitud {matched}")
-
+    for row in rows:
         birth = parse_date(row.get(birth_col))
         death = parse_date(row.get(death_col))
 
@@ -91,8 +107,5 @@ with open(INPUT, encoding="utf-8") as fin, \
             row["Vanus"] = ""
 
         writer.writerow(row)
-        matched += 1
 
-print("VALMIS!")
-print("Leitud isikuid:", matched)
-print("Fail:", OUTPUT)
+print(f"Valmis! Fail loodud: {OUTPUT}")
